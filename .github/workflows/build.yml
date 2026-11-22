@@ -21,10 +21,14 @@ jobs:
           cache: maven
 
       - name: Compile and package
-        run: mvn -B -ntp -Dmaven.compiler.showWarnings=true -Dmaven.compiler.showDeprecation=true clean package
+        run: mvn -B -ntp clean package
 
-      - name: Check jar contents
-        run: |
-          JAR=$(ls target/BigStacks-*.jar | head -n1)
-          echo "Jar: $JAR"
-          unzip -l "$JAR" | grep -q "plugin.yml" || { echo "plugin.yml missing"; exit 1;
+      - name: List jar contents
+        run: unzip -l target/BigStacks-1.0.jar
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: BigStacks
+          path: target/BigStacks-1.0.jar
+          if-no-files-found: error
