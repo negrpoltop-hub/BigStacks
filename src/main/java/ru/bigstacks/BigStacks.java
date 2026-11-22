@@ -60,21 +60,31 @@ public class BigStacks extends JavaPlugin implements Listener {
         return Math.max(1, Math.min(99, v));
     }
 
+    private boolean isPotion(Material m) {
+        if (m == Material.POTION) return true;
+        if (m == Material.SPLASH_POTION) return true;
+        return m == Material.LINGERING_POTION;
+    }
+
     private int target(Material m) {
-        if (m.isAir()  !m.isItem()  exclude.contains(m)) return -1;
-        if (skipDamageable && m.getMaxDurability() > 0) return -1;
-        if (m == Material.POTION  m == Material.SPLASH_POTION  m == Material.LINGERING_POTION) {
-            return potion;
+        if (m.isAir()) return -1;
+        if (!m.isItem()) return -1;
+        if (exclude.contains(m)) return -1;
+        if (skipDamageable) {
+            if (m.getMaxDurability() > 0) return -1;
         }
+        if (isPotion(m)) return potion;
         int def = m.getMaxStackSize();
         if (def <= 16) return small;
         return big;
     }
 
     private boolean fix(ItemStack s) {
-        if (s == null || s.getType().isAir()) return false;
+        if (s == null) return false;
+        if (s.getType().isAir()) return false;
         int t = target(s.getType());
-        if (t <= 0 || s.getMaxStackSize() == t) return false;
+        if (t <= 0) return false;
+        if (s.getMaxStackSize() == t) return false;
         ItemMeta meta = s.getItemMeta();
         if (meta == null) return false;
         meta.setMaxStackSize(t);
@@ -85,7 +95,9 @@ public class BigStacks extends JavaPlugin implements Listener {
     private void fixInv(Inventory inv) {
         for (int i = 0; i < inv.getSize(); i++) {
             ItemStack it = inv.getItem(i);
-            if (it != null && fix(it)) inv.setItem(i, it);
+            if (it != null) {
+                if (fix(it)) inv.setItem(i, it);
+            }
         }
     }
 
@@ -98,7 +110,15 @@ public class BigStacks extends JavaPlugin implements Listener {
     private boolean holdReached(Player p, int slot) {
         long now = System.currentTimeMillis();
         Track t = tracks.get(p.getUniqueId());
-        if (t == null  t.slot != slot  now - t.last > gapMs) {
+        boolean fresh = (t == null);
+
+if (!fresh) {
+            fresh = (t.slot != slot);
+        }
+        if (!fresh) {
+            fresh = (now - t.last > gapMs);
+        }
+        if (fresh) {
             t = new Track();
             t.slot = slot;
             t.start = now;
@@ -112,7 +132,7 @@ public class BigStacks extends JavaPlugin implements Listener {
         return false;
     }
 
-private void dropAll(Player p, ItemStack stack) {
+    private void dropAll(Player p, ItemStack stack) {
         p.getWorld().dropItem(p.getEyeLocation(), stack, it -> {
             it.setVelocity(p.getLocation().getDirection().multiply(0.3));
             it.setPickupDelay(40);
@@ -127,7 +147,8 @@ private void dropAll(Player p, ItemStack stack) {
         if (holdReached(p, slot)) {
             Bukkit.getScheduler().runTask(this, () -> {
                 ItemStack rest = p.getInventory().getItem(slot);
-                if (rest == null || rest.getType().isAir()) return;
+                if (rest == null) return;
+                if (rest.getType().isAir()) return;
                 p.getInventory().setItem(slot, null);
                 dropAll(p, rest);
             });
@@ -139,10 +160,14 @@ private void dropAll(Player p, ItemStack stack) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
         if (e.getClick() == ClickType.DROP) {
             ItemStack clicked = e.getCurrentItem();
-            if (clicked != null && !clicked.getType().isAir() && holdReached(p, 1000 + e.getRawSlot())) {
-                e.setCancelled(true);
-                e.setCurrentItem(null);
-                dropAll(p, clicked);
+            if (clicked != null) {
+                if (!clicked.getType().isAir()) {
+                    if (holdReached(p, 1000 + e.getRawSlot())) {
+                        e.setCancelled(true);
+                        e.setCurrentItem(null);
+                        dropAll(p, clicked);
+                    }
+                }
             }
         }
         Bukkit.getScheduler().runTask(this, () -> fixPlayer(p));
